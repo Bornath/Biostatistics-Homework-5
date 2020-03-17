@@ -1,0 +1,106 @@
+---
+title: "DB-Homework-5"
+author: "Derek Bornath"
+date: "05/03/2020"
+output: html_document
+---
+
+##1)Work through the regression tree example 1 provided on My Learning Space.
+
+##2) Now let's build a regression tree to help predict crime rate according to some of the predictor variables found in crimedata.csv. Make sure to include expenditures on police in each state (ExpenditureYear) as well as population size of state (StateSize) and the number of low income families in each state (BelowWage). Also, include at least 3 other variables you think might be important predictors of crime rates. 
+```{r}
+library(rpart)
+library(rpart.plot)
+
+CurrentCrime=read.csv('crimedata.csv')
+
+summary(CurrentCrime)
+```
+
+```{r}
+set.seed(365)
+train=sample(x = nrow(CurrentCrime), size = 40, replace = FALSE)
+train.data= CurrentCrime[sample(x=nrow(CurrentCrime),size=40, replace=FALSE),]
+```
+
+
+##3) Print summary of regression tree results. Which variables were most important in your tree?
+
+```{r}
+m.rpart=rpart(CrimeRate~Youth+Education+YouthUnemployment+BelowWage+StateSize+Males+LabourForce+HighYouthUnemploy+ExpenditureYear, data=train.data, cp=10^(-6))
+
+summary(m.rpart)
+```
+#The most important variables would be ExpenditureYear, Youth, and BelowWage. The next teir variables would be Education, StateSize, and YouthUnemployment
+
+##4)Using the rpart.plot function, plot your regression tree. Provide a brief description in words of what the diagram is telling you.
+```{r}
+rpart.plot(m.rpart, digits = 3, fallen.leaves = TRUE,tweak=1.3)
+```
+
+
+##5)According to the plot from Q4, what are the mean crime rates for each group?
+#The mean crime rate is based first on police year expenditure per capita which is indicates if the mean is greater than 72 results in a mean crime rate of 82.7 and it accounts for 45%.  When the expenditure year is less than 72 then it accounts for 55% of the crime rates and the mean crime rate is 115. When police expenditure is less than 72 it is further broken down based youth males present. Youth  is then broken down into number of males aged 18-24 per 1000, which indicates that when there are greater than 131 males per 1000 the mean crime rate is 96.8 and it accounts for 32.5%. On the other hand, when youth is less than 131 males per 1000 then the mean crime rate is 127 and it accounts for 22.5% of crime.
+
+##6)Were any predictor variables excluded from your model? Why do you think they were excluded (ie how does the rpart function decide which variables to include)? This might take some research to figure out how the function works.
+#Yes the rpart function removed the variables; Education,  StateSize, YouthUnemployment, BelowWages, Males, LabourForce and HighYouthUnemploy. These were likely excluded because they did not play a direct role in altering or influencing crime rates from the important variables which were ExpenditureYear and Youth. It could also be that the removed variables from the plot all play a small role influencing crime rates, but do not directly branch off differences between each other such as the wine example. For example Education may play a role on youth males present affecting crime, but its role is no different than the BelowWage scores and therefore they cannot be on a separate branch further down the regression tree.
+
+##7) Now, let's use the model developed with the crimedata.csv to predict crime rates 10 years later. Import the crimedata10.csv file into R and use the predict function to predict crime rates give all the predicor variables available in crimedata10.csv. See Red wine example in MyLS for help.
+```{r}
+FutureCrime=read.csv("crimedata10.csv")
+
+summary(FutureCrime)
+```
+
+```{r}
+p.rpartfuture=predict(m.rpart, FutureCrime)
+```
+
+##8) Run a pearson correlation test using the cor function to determine how the predicted crime rate correlated with the actual crime rate listed in the crimedata10.csv file. What was the correlation coefficient from this analysis?
+
+```{r}
+cor(p.rpartfuture, FutureCrime[["CrimeRate"]], method="pearson")
+```
+#This indicates a moderate correlation between the prediction of current and future crime based on our model
+
+##9) Calculate the mean absolute error of your predictions. Do you think our model was very good a predicting crime rates?
+```{r}
+MAE <- function(actual, predicted)  {
+  mean(abs(actual - predicted))
+}
+
+MAE(predicted = p.rpartfuture,actual = FutureCrime[["CrimeRate"]])
+```
+#Since the mean absolute error rate was so high this model does not appear to be very effective at predicting crime rates due to such a large error range.
+
+##10) Using the wine example as a starting point, figure out how to generate a null distribution for comparison with your model results. In other words, if you randomly assign crime rates to states and calculate the absolute error repeatedly, what would be the mean absolute error you would attain. An annotated example is provided in the last code chunk of the red wine example.
+
+```{r}
+crime.rates.test=FutureCrime[["CrimeRate"]]
+
+actual=crime.rates.test
+
+MAE2 = function(data,indices)  {
+  d=data[indices]
+  return(mean(abs(actual - d)))
+}
+
+library(boot)
+guesses=boot(data=crime.rates.test, statistic=MAE2, R=1000)
+
+{hist(guesses$t)
+abline(v=mean(guesses$t),col="red")}
+mean(guesses$t)
+```
+#The null distribution of the model is determined by randomly assign crime rates to states and calculate the absolute error repeatedly, which resulted in a mean absolute error greater than 44 (cannot put an exact decimal place as it will vary with every time that it is run through by randomly assigning crime rates).
+
+##11) What is the mean absolute error when crime rates are randomly assigned to states (ie your output from Q9)? How does this compare with the error from your regression tree model?
+#The mean absolute error for randomly assigned crime rates to states is approximately 44 which is even greater than the error rate for our regression tree model when tested through the future crime data set which is 24.35485. This indicates that our model is even less effective at determining crime rates to an area when random numbers our assigned, and therefore our model is not the best.
+
+##12) Is the mean absolute error from your model significantly different from random chance? Provide the p-value estimated from comparison with your null distribution.
+
+```{r}
+p.value=length(which((guesses$t<24.354)==T))/1000
+p.value
+```
+#As stated above the pvalue=0, and therefore indicates that the model is significantly different from random chance, providing evidence of the model created being replicable and not just due to random chance.
